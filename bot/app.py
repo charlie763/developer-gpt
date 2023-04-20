@@ -3,6 +3,7 @@
 import os
 import openai
 import re
+import ast
 from decouple import config
 
 
@@ -33,13 +34,13 @@ class ChatBot:
             else:
                 self.messages[-2]['content'] = 'check the next message to see what you thought about this message'
         self.messages.append({"role": "user", "content": message})
-        # print(self.messages)
         result = self.execute()
         self.messages.append({"role": "assistant", "content": result})
+        print(self.messages)
         return result
 
     def execute(self):
-        completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=self.messages, temperature=0.2)
+        completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=self.messages, temperature=0.1)
         # Uncomment this to print out token usage each time, e.g.
         # {"completion_tokens": 86, "prompt_tokens": 26, "total_tokens": 112}
         print(completion.usage)
@@ -78,25 +79,26 @@ Example session:
 Coding Task: We have a built game of Tetris. The arrow keys are used to move pieces, but pressing up also scrolls the
              user up and down in the browser. Prevent this from happening.
 Thought: I should find the file where arrow keyboard events are handled.
-Action: list_files: /
+Action: list_files, Arg: /
 PAUSE
 
-result of -- running list_files /: files found: ['./frontend/game.js', './frontend/index.html', './frontend/display.js',
-'./frontend/styles.css', './frontend/board.js', './frontend/index.js', './frontend/utilities.js', './frontend/api.js']
-
 Thought: Given the results of list_files: /, I should look in the /frontend/eventHandlers.js file.
-Action: read_file: /frontend/eventHandlers.js
+Action: read_file, Arg: /frontend/eventHandlers.js
 PAUSE
 
 Thought: I can't find the relevant code in /frontend/eventHandlers.js. I should look in another file. Let me look at other list_files results.
-Action: read_file: /frontend/index.js
+Action: read_file, Arg: /frontend/index.js
+PAUSE
+
+Thought: Looks like the relevant code is from line 14-17 in /frontend/index.js. I should change the code on those lines.
+Action: change_file, Arg: /frontend/index.js, Arg: {15: 'e.preventDefault()', 16: "if (e.key === 'ArrowDown') {", 17: 'movePiece()', 18: '}'}
 PAUSE
 
 Continue iterating like this until you make the necessary changes to complete the coding task.
 """.strip()
 
 
-action_re = re.compile('^Action: (\w+): (.*)$')
+action_re = re.compile('^Action: (.*)$')
 
 
 def coding_task(task, max_turns=8):
@@ -111,13 +113,17 @@ def coding_task(task, max_turns=8):
         # print("actions: {}".format(actions))
         if actions:
             # There is an action to run
-            action, action_input = actions[0].groups()
+            action_list = actions[0].string.split(', Arg: ')
+            # action, action_input = actions[0].groups()
+            action = action_list[0].split('Action: ')[1]
+            action_args = action_list[1:]
+            # print("action_input: {}".format(action_args))
             if action not in known_actions:
-                raise Exception("Unknown action: {}: {}".format(action, action_input))
-            print(" -- running {} {}".format(action, action_input))
-            action_result = known_actions[action](action_input)
+                raise Exception("Unknown action: {}: {}".format(action, action_args))
+            print(" -- running {} {}".format(action, action_args))
+            action_result = known_actions[action](*action_args)
             # print("Action Result:", action_result)
-            next_prompt = "result of -- running {} {}: {}".format(action, action_input, action_result)
+            next_prompt = "result of -- running {} {}: {}".format(action, action_args, action_result)
         else:
             return
 
@@ -157,8 +163,9 @@ def read_file(filepath):
 
 
 def change_file(filepath, changes):
+    changes_dict = ast.literal_eval(changes)
     file_lines = open("./{}".format(filepath)).readlines()
-    for line, change in changes.items():
+    for line, change in changes_dict.items():
         file_lines[line] = change
     with open("./{}".format(filepath), 'w') as file:
         file.writelines(file_lines)
