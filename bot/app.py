@@ -17,6 +17,9 @@ class ChatBot:
             self.messages.append({"role": "system", "content": system})
 
     def __call__(self, message):
+        print(self.messages)
+        if len(self.messages) >= 2 and self.messages[-2]['role'] == 'user':
+            self.messages[-2]['content'] = 'check the next message to see what you thought about this message'
         self.messages.append({"role": "user", "content": message})
         result = self.execute()
         self.messages.append({"role": "assistant", "content": result})
@@ -84,7 +87,7 @@ def coding_task(task, max_turns=5):
         result = bot(next_prompt)
         print(result)
         actions = [action_re.match(a) for a in result.split('\n') if action_re.match(a)]
-        print("actions: {}".format(actions))
+        # print("actions: {}".format(actions))
         if actions:
             # There is an action to run
             action, action_input = actions[0].groups()
@@ -92,7 +95,7 @@ def coding_task(task, max_turns=5):
                 raise Exception("Unknown action: {}: {}".format(action, action_input))
             print(" -- running {} {}".format(action, action_input))
             action_result = known_actions[action](action_input)
-            print("Action Result:", action_result)
+            # print("Action Result:", action_result)
             next_prompt = "result of -- running {} {}: {}".format(action, action_input, action_result)
         else:
             return
@@ -100,17 +103,15 @@ def coding_task(task, max_turns=5):
 
 def list_files(starting_dir=''):
     preface = 'files found: '
-    try: 
+    try:
         os.scandir(".{}".format(starting_dir))
     except FileNotFoundError:
-        starting_dir=''
+        starting_dir = ''
         preface = "That starting file directory doesn't exist. Here's a list of files starting at the root directory: "
-    # not sure if this is really an issue, hopefully hardcoding the beginning of the starting path will prevent the AI
-    # from being able to search the whole computer
+
     def helper(starting_dir):
         file_paths = []
         for dir_entry in os.scandir(".{}".format(starting_dir)):
-        # for dir_entry in os.scandir():
             if dir_entry.is_file():
                 file_paths.append(dir_entry.path)
             elif dir_entry.is_dir():
