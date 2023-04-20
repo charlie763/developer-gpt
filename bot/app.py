@@ -58,12 +58,20 @@ Example session:
 Coding Task: We have a built game of Tetris. The arrow keys are used to move pieces, but pressing up also scrolls the
              user up and down in the browser. Prevent this from happening.
 Thought: I should find the file where arrow keyboard events are handled.
-Actions: find_file and read_file
+Action: find_file: /lib
 PAUSE
 
 You then output where you think the relevant code is:
 
-Observation: I think the relevant code is in eventHandlers.js lines 14-17.
+Observation: I think the relevant code is in /lib/eventHandlers.js.
+Thought: I should open /lib/eventHandlers.js
+Action: read_file: /lib/eventHanderls.js
+PAUSE
+
+Observation: I think the relevant code is on lines 14-17 of /lib/eventHandlers.js.
+Thought: I should add a new line after line 14, event.preventDefault();
+Action: change_file: \{15: 'e.preventDefault()', 16: if "(e.key === 'ArrowDown') \{", 17: 'movePiece()', 18: '\}'\}
+PAUSE
 
 If you're certain that's where the relevant code is precede with a change_file action. If not ask the developer if you are
 correct.
@@ -82,11 +90,13 @@ def coding_task(task, max_turns=5):
     while i < max_turns:
         i += 1
         result = bot(next_prompt)
-        print(result)
+        print("result: {}".format(result))
         actions = [action_re.match(a) for a in result.split('\n') if action_re.match(a)]
+        print("actions: {}".format(actions))
         if actions:
             # There is an action to run
             action, action_input = actions[0].groups()
+            print("action: ")
             if action not in known_actions:
                 raise Exception("Unknown action: {}: {}".format(action, action_input))
             print(" -- running {} {}".format(action, action_input))
@@ -97,23 +107,30 @@ def coding_task(task, max_turns=5):
             return
 
 
-def find_file(starting_dir=''):
+def find_file(starting_dir='/'):
     file_paths = []
+    try: 
+        os.scandir(".{}".format(starting_dir))
+    except FileNotFoundError:
+        starting_dir=''
     # not sure if this is really an issue, hopefully hardcoding the beginning of the starting path will prevent the AI
     # from being able to search the whole computer
     for dir_entry in os.scandir("./{}".format(starting_dir)):
+    # for dir_entry in os.scandir():
         if dir_entry.is_file():
             file_paths.append(dir_entry.path)
         elif dir_entry.is_dir():
-            sub_file_paths = find_file(starting_dir=dir_entry.path[2:])
+            sub_file_paths = find_file(starting_dir=dir_entry.path[1:])
             file_paths = file_paths + sub_file_paths
     return file_paths
 
 
 def read_file(filepath):
+    if not filepath:
+        raise Exception("no file path given to read from")
     file_lines = []
     num = 1
-    with open("./{}".format(filepath)) as file:
+    with open(".{}".format(filepath)) as file:
         for line in file:
             file_lines.append(line)
             num += 1
@@ -122,7 +139,7 @@ def read_file(filepath):
 
 def change_file(filepath, changes):
     file_lines = open("./{}".format(filepath)).readlines()
-    for line, change in changes:
+    for line, change in changes.items():
         file_lines[line] = change
     with open("./{}".format(filepath), 'w') as file:
         file.writelines(file_lines)
