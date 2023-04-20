@@ -80,7 +80,7 @@ def coding_task(task, max_turns=5):
     while i < max_turns:
         i += 1
         result = bot(next_prompt)
-        print("result: {}".format(result))
+        print(result)
         actions = [action_re.match(a) for a in result.split('\n') if action_re.match(a)]
         print("actions: {}".format(actions))
         if actions:
@@ -123,10 +123,11 @@ def read_file(filepath):
         raise Exception("no file path given to read from")
     file_lines = []
     num = 1
-    #TO DO: put in logic make sure certain files aren't looked at
-    with open(filepath) as file: 
+    # use len to keep track of each line and then keep a total count of char/tokens 4:1 ratio
+    # then stop if, too much
+    with open(".{}".format(filepath[1:])) as file: 
         for line in file:
-            file_lines.append(line)
+            file_lines.append("{}. {}".format(num, line))
             num += 1
     return file_lines
 
