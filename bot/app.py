@@ -42,14 +42,16 @@ Your available actions are:
 
 list_files:
 e.g. task: figure out why my code isn't working, starting directory: /main
-Given a coding task and a starting file directory, figure out which file to look at.
+Use the initial coding task and any previous action results to call this action with a starting file directory.
+Use the result of this action to figure out which file to look at or if you need to first list files with a different starting directory.
 
 read_file:
-e.g. task: figure out why my code isn't working, file: /main/app.py, user feedback (option): that's not exactly right
-Given a coding task, optional user feedback and a file to work in, read the file and output thoughts about needed change
+e.g. task: figure out why my code isn't working, file: /main/app.py
+Use the initial coding task and any previous action results to call this action with a file path.
+Use the result of this action to figure out which line(s) of code to change or if you need first look in another file.
 
 change_file:
-e.g. proposed change: update line 14 to have the correct syntax, file: /main/app.py
+e.g. task: figure out why my code isn't working, file: /main/app.py
 Given a file path and a dictionary of file lines and corresponding proposed changes, update the file with your proposed changes
 
 Your goal is to iterate through these actions with the help of a developer until the original coding task is achieved
@@ -119,17 +121,18 @@ def list_files(starting_dir=''):
 
 
 def read_file(filepath):
-    if not filepath:
-        raise Exception("no file path given to read from")
     file_lines = []
     num = 1
     # use len to keep track of each line and then keep a total count of char/tokens 4:1 ratio
     # then stop if, too much
-    with open(".{}".format(filepath[1:])) as file: 
-        for line in file:
-            file_lines.append("{}. {}".format(num, line))
-            num += 1
-    return file_lines
+    try:
+        with open(".{}".format(filepath[1:])) as file:
+            for line in file:
+                file_lines.append("{}. {}".format(num, line))
+                num += 1
+        return file_lines
+    except FileNotFoundError:
+        return "That file doesn't exist. Try again. Only try files resulting from a list_files action."
 
 
 def change_file(filepath, changes):
