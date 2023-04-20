@@ -23,7 +23,7 @@ class ChatBot:
         return result
 
     def execute(self):
-        completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=self.messages)
+        completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=self.messages, temperature=0)
         # Uncomment this to print out token usage each time, e.g.
         # {"completion_tokens": 86, "prompt_tokens": 26, "total_tokens": 112}
         print(completion.usage)
@@ -31,15 +31,16 @@ class ChatBot:
 
 
 prompt = """
-You run in a loop of Thought, Action, PAUSE, Observation.
-At the end of the loop you output an Answer
+Your goal is to help a developer achieve a coding task.
+You run in a loop of Thought, Action, PAUSE.
 Use Thought to describe your thoughts about the question you have been asked.
 Use Action to run one of the actions available to you - then return PAUSE.
-Observation will be the result of running those actions.
+At the end of a loop cycle you either take the result of the last action as input to generate
+your next action, or you stop looping if you think the coding task is complete
 
 Your available actions are:
 
-find_file:
+list_files:
 e.g. task: figure out why my code isn't working, starting directory: /main
 Given a coding task and a starting file directory, figure out which file to look at.
 
@@ -58,25 +59,14 @@ Example session:
 Coding Task: We have a built game of Tetris. The arrow keys are used to move pieces, but pressing up also scrolls the
              user up and down in the browser. Prevent this from happening.
 Thought: I should find the file where arrow keyboard events are handled.
-Action: find_file: /lib
+Action: list_files: /lib
 PAUSE
 
-You then output where you think the relevant code is:
-
-Observation: I think the relevant code is in /lib/eventHandlers.js.
-Thought: I should open /lib/eventHandlers.js
-Action: read_file: /lib/eventHanderls.js
+Thought: Given the results of list_files: /lib, I should look in the /frontend/eventHandlers.js file.
+Action: read_file: /frontend/eventHandlers.js 
 PAUSE
 
-Observation: I think the relevant code is on lines 14-17 of /lib/eventHandlers.js.
-Thought: I should add a new line after line 14, event.preventDefault();
-Action: change_file: \{15: 'e.preventDefault()', 16: if "(e.key === 'ArrowDown') \{", 17: 'movePiece()', 18: '\}'\}
-PAUSE
-
-If you're certain that's where the relevant code is precede with a change_file action. If not ask the developer if you are
-correct.
-
-Once you've ran a change_file action summarize your changes and/or show the diff.
+Continue iterating like this until you make the necessary changes to complete the coding task.
 """.strip()
 
 
@@ -96,33 +86,36 @@ def coding_task(task, max_turns=5):
         if actions:
             # There is an action to run
             action, action_input = actions[0].groups()
-            print("action: ")
             if action not in known_actions:
                 raise Exception("Unknown action: {}: {}".format(action, action_input))
             print(" -- running {} {}".format(action, action_input))
-            observation = known_actions[action](action_input)
-            print("Observation:", observation)
-            next_prompt = "Observation: {}".format(observation)
+            action_result = known_actions[action](action_input)
+            print("Action Result:", action_result)
+            next_prompt = "result of -- running {} {}: {}".format(action, action_input, action_result)
         else:
             return
 
 
-def find_file(starting_dir='/'):
-    file_paths = []
+def list_files(starting_dir=''):
+    preface = 'files found: '
     try: 
         os.scandir(".{}".format(starting_dir))
     except FileNotFoundError:
         starting_dir=''
+        preface = "That starting file directory doesn't exist. Here's a list of files starting at the root directory: "
     # not sure if this is really an issue, hopefully hardcoding the beginning of the starting path will prevent the AI
     # from being able to search the whole computer
-    for dir_entry in os.scandir("./{}".format(starting_dir)):
-    # for dir_entry in os.scandir():
-        if dir_entry.is_file():
-            file_paths.append(dir_entry.path)
-        elif dir_entry.is_dir():
-            sub_file_paths = find_file(starting_dir=dir_entry.path[1:])
-            file_paths = file_paths + sub_file_paths
-    return file_paths
+    def helper(starting_dir):
+        file_paths = []
+        for dir_entry in os.scandir(".{}".format(starting_dir)):
+        # for dir_entry in os.scandir():
+            if dir_entry.is_file():
+                file_paths.append(dir_entry.path)
+            elif dir_entry.is_dir():
+                sub_file_paths = helper(starting_dir=dir_entry.path[1:])
+                file_paths = file_paths + sub_file_paths
+        return file_paths
+    return "{}{}".format(preface, helper(starting_dir))
 
 
 def read_file(filepath):
@@ -130,7 +123,8 @@ def read_file(filepath):
         raise Exception("no file path given to read from")
     file_lines = []
     num = 1
-    with open(".{}".format(filepath)) as file:
+    #TO DO: put in logic make sure certain files aren't looked at
+    with open(filepath) as file: 
         for line in file:
             file_lines.append(line)
             num += 1
@@ -146,7 +140,7 @@ def change_file(filepath, changes):
 
 
 known_actions = {
-    "find_file": find_file,
+    "list_files": list_files,
     "read_file": read_file,
     "change_file": change_file
 }
