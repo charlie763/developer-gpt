@@ -39,7 +39,7 @@ class ChatBot:
         return result
 
     def execute(self):
-        completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=self.messages, temperature=0)
+        completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=self.messages, temperature=0.2)
         # Uncomment this to print out token usage each time, e.g.
         # {"completion_tokens": 86, "prompt_tokens": 26, "total_tokens": 112}
         print(completion.usage)
@@ -65,6 +65,7 @@ read_file:
 e.g. task: figure out why my code isn't working, file: /main/app.py
 Use the initial coding task and any previous list_files action results to call this action with a file path.
 Use the result of this action to figure out which line(s) of code to change or if you to need first look in another file.
+If you can't find the code that needs to change, you most likely need to look in another file first.
 
 change_file:
 e.g. task: figure out why my code isn't working, file: /main/app.py
@@ -80,8 +81,15 @@ Thought: I should find the file where arrow keyboard events are handled.
 Action: list_files: /
 PAUSE
 
+result of -- running list_files /: files found: ['./frontend/game.js', './frontend/index.html', './frontend/display.js',
+'./frontend/styles.css', './frontend/board.js', './frontend/index.js', './frontend/utilities.js', './frontend/api.js']
+
 Thought: Given the results of list_files: /, I should look in the /frontend/eventHandlers.js file.
 Action: read_file: /frontend/eventHandlers.js
+PAUSE
+
+Thought: I can't find the relevant code in /frontend/eventHandlers.js. I should look in another file. Let me look at other list_files results.
+Action: read_file: /frontend/index.js
 PAUSE
 
 Continue iterating like this until you make the necessary changes to complete the coding task.
