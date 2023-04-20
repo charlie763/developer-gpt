@@ -3,8 +3,10 @@
 import os
 import openai
 import re
+from decouple import config
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+
+openai.api_key = config("OPENAI_API_KEY")
 
 
 class ChatBot:
