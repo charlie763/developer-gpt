@@ -36,7 +36,7 @@ class ChatBot:
         self.messages.append({"role": "user", "content": message})
         result = self.execute()
         self.messages.append({"role": "assistant", "content": result})
-        print(self.messages)
+        # print(self.messages)
         return result
 
     def execute(self):
@@ -163,12 +163,19 @@ def read_file(filepath):
 
 
 def change_file(filepath, changes):
-    changes_dict = ast.literal_eval(changes)
-    file_lines = open("./{}".format(filepath)).readlines()
-    for line, change in changes_dict.items():
-        file_lines[line] = change
-    with open("./{}".format(filepath), 'w') as file:
-        file.writelines(file_lines)
+    print('Do you want to make the following changes to {}: {}?'.format(filepath, changes))
+    print('(reply "yes" if you want to continue with the file change, or given an explanation of why not for the ai if not)')
+    user_input = input()
+    if user_input == 'yes':
+        changes_dict = ast.literal_eval(changes)
+        file_lines = open("./{}".format(filepath)).readlines()
+        for line, change in changes_dict.items():
+            file_lines[line] = change
+        with open("./{}".format(filepath), 'w') as file:
+            file.writelines(file_lines)
+        return "The File changed successfully"
+    else:
+        return "The File was not changed because: {}".format(user_input)
 
 
 known_actions = {
