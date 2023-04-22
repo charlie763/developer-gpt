@@ -31,16 +31,20 @@ class ChatBot:
                     list_files_re = re.compile('list_files')
                     if list_files_re.search(old_message['content']) and old_message['role'] == 'user':
                         old_message['content'] = 'check the next message to see what you thought about this message'
-        elif len(self.messages) >= 2 and self.messages[-1]['role'] == 'assistant':
-            #handle case of single line relevance
-            successful_read_file_re = re.compile('[0-9]+-[0-9]+')
-            read_file_match = successful_read_file_re.search(self.messages[-2]['content'])
-            if read_file_match:
-                relevant_lines = read_file_match.group().split('-')
-                file_lines =  ast.literal_eval(self.messages[-2]['content'])
-                self.messages[-2]['content'] = file_lines[relevant_lines[0]:relevant_lines[1]]
         self.messages.append({"role": "user", "content": message})
         result = self.execute()
+
+        # memory optimization for readfile (split out later)
+        successful_read_file_re = re.compile('lines [0-9]+-[0-9]+')
+        read_file_match = successful_read_file_re.search(result)
+        if read_file_match:
+            relevant_lines = read_file_match.group().replace("lines ", "").split('-')
+            stripped_message = re.sub(r"result of -- running read_file.*]:", "", message.strip()).strip()
+            file_lines =  ast.literal_eval(stripped_message)
+            relevant_file_lines = file_lines[(int(relevant_lines[0]) - 1):(int(relevant_lines[1]) - 1)]
+            new_message = "relevant lines found after running read_file with [\'/frontend/index.js\']: {}".format(relevant_file_lines)
+            self.messages[-1]['content'] = new_message
+
         self.messages.append({"role": "assistant", "content": result})
         print(self.messages)
         return result
