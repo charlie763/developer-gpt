@@ -31,12 +31,18 @@ class ChatBot:
                     list_files_re = re.compile('list_files')
                     if list_files_re.search(old_message['content']) and old_message['role'] == 'user':
                         old_message['content'] = 'check the next message to see what you thought about this message'
-            else:
-                self.messages[-2]['content'] = 'check the next message to see what you thought about this message'
+        elif len(self.messages) >= 2 and self.messages[-1]['role'] == 'assistant':
+            #handle case of single line relevance
+            successful_read_file_re = re.compile('[0-9]+-[0-9]+')
+            read_file_match = successful_read_file_re.search(self.messages[-2]['content'])
+            if read_file_match:
+                relevant_lines = read_file_match.group().split('-')
+                file_lines =  ast.literal_eval(self.messages[-2]['content'])
+                self.messages[-2]['content'] = file_lines[relevant_lines[0]:relevant_lines[1]]
         self.messages.append({"role": "user", "content": message})
         result = self.execute()
         self.messages.append({"role": "assistant", "content": result})
-        # print(self.messages)
+        print(self.messages)
         return result
 
     def execute(self):
@@ -67,6 +73,7 @@ e.g. task: figure out why my code isn't working, file: /main/app.py
 Use the initial coding task and any previous list_files action results to call this action with a file path.
 Use the result of this action to figure out which line(s) of code to change or if you to need first look in another file.
 If you can't find the code that needs to change, you most likely need to look in another file first.
+If you do find relevant code make sure to say which lines of code are relevant in your Thought.
 
 change_file:
 e.g. task: figure out why my code isn't working, file: /main/app.py
@@ -92,7 +99,7 @@ Thought: I can't find the relevant code in /frontend/eventHandlers.js. I should 
 Action: read_file, Arg: /frontend/index.js
 PAUSE
 
-Thought: Looks like the relevant code is from line 14-17 in /frontend/index.js. I should change the code on those lines.
+Thought: Looks like the relevant code is from lines 14-17 in /frontend/index.js. I should change the code on those lines.
 Action: change_file, Arg: /frontend/index.js, Arg: {15: ('add', '    e.preventDefault()')}
 PAUSE
 
