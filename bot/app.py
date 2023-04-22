@@ -163,16 +163,25 @@ def read_file(filepath):
 
 
 def change_file(filepath, changes):
+    # try doing changes as list of touples [(line num, add/replace/delete, change)]
+    # keep old version of file until complete and keep a line number differential for the new file being constructed
     print('Do you want to make the following changes to {}: {}?'.format(filepath, changes))
     print('(reply "yes" if you want to continue with the file change, or given an explanation of why not for the ai if not)')
     user_input = input()
     if user_input == 'yes':
         changes_dict = ast.literal_eval(changes)
-        file_lines = open("./{}".format(filepath)).readlines()
-        for line, change in changes_dict.items():
-            file_lines[line] = change
-        with open("./{}".format(filepath), 'w') as file:
-            file.writelines(file_lines)
+        old_file_lines = open("./{}".format(filepath)).readlines()
+        new_file_lines = [*old_file_lines]
+        line_num_differential = 0
+        for line_num, change in changes_dict.items():
+            if change[0] == 'add':
+                new_file_lines = new_file_lines[:line_num] + ["{}\n".format(change[1])] + old_file_lines[line_num - line_num_differential:]
+                line_num_differential += 1
+            if change[0] == 'replace':
+                new_file_lines = new_file_lines[:line_num + line_num_differential - 1] + ["{}\n".format(change[1])] + old_file_lines[line_num:]
+            if change[0] == 'delete':
+                new_file_lines = new_file_lines[:line_num + line_num_differential - 1] + old_file_lines[line_num:]
+                line_num_differential -= 1
         return "The File changed successfully"
     else:
         return "The File was not changed because: {}".format(user_input)
