@@ -70,7 +70,9 @@ If you can't find the code that needs to change, you most likely need to look in
 
 change_file:
 e.g. task: figure out why my code isn't working, file: /main/app.py
-Given a file path and a dictionary of file lines and corresponding proposed changes, update the file with your proposed changes
+Given a file path and a dictionary of proposed changes, update the file with your proposed changes.
+The dictionary of changes needs to have line numbers as keys with values being a touple with the first touple
+entry being "add", "replace", or "delete", and the second touple entry being the change to make (an empty string in the case of deletion).
 
 Your goal is to iterate through these actions until the original coding task is achieved
 
@@ -91,7 +93,7 @@ Action: read_file, Arg: /frontend/index.js
 PAUSE
 
 Thought: Looks like the relevant code is from line 14-17 in /frontend/index.js. I should change the code on those lines.
-Action: change_file, Arg: /frontend/index.js, Arg: {15: 'e.preventDefault()', 16: "if (e.key === 'ArrowDown') {", 17: 'movePiece()', 18: '}'}
+Action: change_file, Arg: /frontend/index.js, Arg: {15: ('add', '    e.preventDefault()')}
 PAUSE
 
 Continue iterating like this until you make the necessary changes to complete the coding task.
