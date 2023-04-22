@@ -56,7 +56,8 @@ class ChatBot:
 prompt = """
 Your goal is to help a developer achieve a coding task.
 You run in a loop of Thought, Action, PAUSE.
-Use Thought to describe your thoughts about the question you have been asked.
+Use Thought to describe your thoughts about the coding task, results of actions you have taken,
+or why you plan to the action you plan to take next.
 Use Action to run one of the actions available to you - then return PAUSE.
 At the end of a loop cycle you either take the result of the last action as input to generate
 your next action, or you stop looping if you think the coding task is complete
@@ -67,6 +68,7 @@ list_files:
 e.g. task: figure out why my code isn't working, starting directory: /main
 Use the initial coding task and any previous action results to call this action with a starting file directory.
 Use the result of this action to figure out which file to look at or if you need to first list files with a different starting directory.
+If you don't know which starting directory to start in, start with '/'.
 
 read_file:
 e.g. task: figure out why my code isn't working, file: /main/app.py
@@ -74,6 +76,8 @@ Use the initial coding task and any previous list_files action results to call t
 Use the result of this action to figure out which line(s) of code to change or if you to need first look in another file.
 If you can't find the code that needs to change, you most likely need to look in another file first.
 If you do find relevant code make sure to say which lines of code are relevant in your Thought.
+When mentioning relevant lines you need to use the syntax "line [beginning line number]-[ending line number]".
+It can also be helpful to mention any relevant functions or methods 
 
 change_file:
 e.g. task: figure out why my code isn't working, file: /main/app.py
@@ -99,7 +103,7 @@ Thought: I can't find the relevant code in /frontend/eventHandlers.js. I should 
 Action: read_file, Arg: /frontend/index.js
 PAUSE
 
-Thought: Looks like the relevant code is from lines 14-17 in /frontend/index.js. I should change the code on those lines.
+Thought: Looks like the relevant code is from lines 14-17 in /frontend/index.js in the handleKeyDownEvents function. I should change the code on those lines.
 Action: change_file, Arg: /frontend/index.js, Arg: {15: ('add', '    e.preventDefault()')}
 PAUSE
 
@@ -179,10 +183,12 @@ def change_file(filepath, changes):
     user_input = input()
     if user_input == 'yes':
         changes_dict = ast.literal_eval(changes)
+        print("changes dict: {}".format(changes_dict))
         old_file_lines = open("./{}".format(filepath)).readlines()
         new_file_lines = [*old_file_lines]
         line_num_differential = 0
         for line_num, change in changes_dict.items():
+            print("change: {}".format(change[0]))
             if change[0] == 'add':
                 new_file_lines = new_file_lines[:line_num] + ["{}\n".format(change[1])] + old_file_lines[line_num - line_num_differential:]
                 line_num_differential += 1
@@ -191,6 +197,8 @@ def change_file(filepath, changes):
             if change[0] == 'delete':
                 new_file_lines = new_file_lines[:line_num + line_num_differential - 1] + old_file_lines[line_num:]
                 line_num_differential -= 1
+        with open(".{}".format(filepath), 'w') as file:
+            file.writelines(new_file_lines)
         return "The File changed successfully"
     else:
         return "The File was not changed because: {}".format(user_input)
