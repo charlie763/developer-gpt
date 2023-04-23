@@ -46,14 +46,14 @@ class ChatBot:
             self.messages[-1]['content'] = new_message
 
         self.messages.append({"role": "assistant", "content": result})
-        print(self.messages)
+        # print(self.messages)
         return result
 
     def execute(self):
         completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=self.messages, temperature=0.1)
         # Uncomment this to print out token usage each time, e.g.
         # {"completion_tokens": 86, "prompt_tokens": 26, "total_tokens": 112}
-        print(completion.usage)
+        # print(completion.usage)
         return completion.choices[0].message.content
 
 
@@ -127,19 +127,15 @@ def coding_task(task, max_turns=8):
         result = bot(next_prompt)
         print(result)
         actions = [action_re.match(a) for a in result.split('\n') if action_re.match(a)]
-        # print("actions: {}".format(actions))
         if actions:
             # There is an action to run
             action_list = actions[0].string.split(', Arg: ')
-            # action, action_input = actions[0].groups()
             action = action_list[0].split('Action: ')[1]
             action_args = action_list[1:]
-            # print("action_input: {}".format(action_args))
             if action not in known_actions:
                 raise Exception("Unknown action: {}: {}".format(action, action_args))
             print(" -- running {} {}".format(action, action_args))
             action_result = known_actions[action](*action_args)
-            # print("Action Result:", action_result)
             next_prompt = "result of -- running {} {}: {}".format(action, action_args, action_result)
         else:
             return
@@ -180,19 +176,15 @@ def read_file(filepath):
 
 
 def change_file(filepath, changes):
-    # try doing changes as list of touples [(line num, add/replace/delete, change)]
-    # keep old version of file until complete and keep a line number differential for the new file being constructed
     print('Do you want to make the following changes to {}: {}?'.format(filepath, changes))
     print('(reply "yes" if you want to continue with the file change, or given an explanation of why not for the ai if not)')
     user_input = input()
     if user_input == 'yes':
         changes_dict = ast.literal_eval(changes)
-        print("changes dict: {}".format(changes_dict))
         old_file_lines = open("./{}".format(filepath)).readlines()
         new_file_lines = [*old_file_lines]
         line_num_differential = 0
         for line_num, change in changes_dict.items():
-            print("change: {}".format(change[0]))
             if change[0] == 'add':
                 new_file_lines = new_file_lines[:line_num] + ["{}\n".format(change[1])] + old_file_lines[line_num - line_num_differential:]
                 line_num_differential += 1
