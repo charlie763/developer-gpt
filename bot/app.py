@@ -21,16 +21,16 @@ class ChatBot:
     def __call__(self, message):
         # memory summarization: keep the action result if it was the last successful list_files action otherwise
         # replace it with a message saying to check the next message to see what you thought about this message
-        if len(self.messages) >= 2 and self.messages[-2]['role'] == 'user':
-            message_content = self.messages[-2]['content']
-            successful_list_files_re = re.compile('list_files.*files found')
-            if successful_list_files_re.search(message_content) and (not self.last_list_files_result or len(self.last_list_files_result) > len(message_content)):
-                self.last_list_files_result = message_content
-                self.messages[-2]['content'] = "last successful result of list_files: {}".format(message_content)
-                for old_message in self.messages[:-2]:
-                    list_files_re = re.compile('list_files')
-                    if list_files_re.search(old_message['content']) and old_message['role'] == 'user':
-                        old_message['content'] = 'check the next message to see what you thought about this message'
+        # if len(self.messages) >= 2 and self.messages[-2]['role'] == 'user':
+        #     message_content = self.messages[-2]['content']
+        #     successful_list_files_re = re.compile('list_files.*files found')
+        #     if successful_list_files_re.search(message_content) and (not self.last_list_files_result or len(self.last_list_files_result) > len(message_content)):
+        #         self.last_list_files_result = message_content
+        #         self.messages[-2]['content'] = "last successful result of list_files: {}".format(message_content)
+        #         for old_message in self.messages[:-2]:
+        #             list_files_re = re.compile('list_files')
+        #             if list_files_re.search(old_message['content']) and old_message['role'] == 'user':
+        #                 old_message['content'] = 'check the next message to see what you thought about this message'
         self.messages.append({"role": "user", "content": message})
         result = self.execute()
 
@@ -151,12 +151,16 @@ def list_files(starting_dir=''):
 
     def helper(starting_dir):
         file_paths = []
+        MAX_DEPTH = 2
+        depth = 0
         for dir_entry in os.scandir(".{}".format(starting_dir)):
             if dir_entry.is_file():
                 file_paths.append(dir_entry.path)
-            elif dir_entry.is_dir():
-                sub_file_paths = helper(starting_dir=dir_entry.path[1:])
-                file_paths = file_paths + sub_file_paths
+            elif dir_entry.is_dir() and (not '.git' in dir_entry.path):
+                depth += 1
+                if depth <= MAX_DEPTH:
+                    sub_file_paths = helper(starting_dir=dir_entry.path[1:])
+                    file_paths = file_paths + sub_file_paths
         return file_paths
     return "{}{}".format(preface, helper(starting_dir))
 
