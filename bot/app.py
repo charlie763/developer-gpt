@@ -61,7 +61,7 @@ prompt = """
 Your goal is to help a developer achieve a coding task.
 You run in a loop of Thought, Action, PAUSE.
 Use Thought to describe your thoughts about the coding task, results of actions you have taken,
-or why you plan to the action you plan to take next.
+or why you plan to take the action you plan to take next.
 Use Action to run one of the actions available to you - then return PAUSE.
 At the end of a loop cycle you either take the result of the last action as input to generate
 your next action, or you stop looping if you think the coding task is complete
@@ -69,7 +69,7 @@ your next action, or you stop looping if you think the coding task is complete
 Your available actions are:
 
 list_files:
-e.g. task: figure out why my code isn't working, starting directory: /main
+Given a starting directory as an argument, lists files in a directory tree
 Use the initial coding task and any previous action results to call this action with a starting file directory.
 Use the result of this action to figure out which file to look at or if you need to first list files with a different starting directory.
 If you don't know which starting directory to start in, start with '/'.
