@@ -75,21 +75,17 @@ Use the result of this action to figure out which file to look at or if you need
 If you don't know which starting directory to start in, start with '/'.
 
 read_file:
-e.g. task: figure out why my code isn't working, file: /main/app.py
-Use the initial coding task and any previous list_files action results to call this action with a file path.
+Given a filename as an argument, reads the file and returns the lines of the file as a list, either all the lines or just the relevant lines.
 Use the result of this action to figure out which line(s) of code to change or if you to need first look in another file.
 If you can't find the code that needs to change, you most likely need to look in another file first.
 If you do find relevant code make sure to say which lines of code are relevant in your Thought.
 When mentioning relevant lines you need to use the syntax "line [beginning line number]-[ending line number]".
-It can also be helpful to mention any relevant functions or methods 
+It can also be helpful to mention any relevant functions or methods and summarize what they do.
 
 change_file:
-e.g. task: figure out why my code isn't working, file: /main/app.py
 Given a file path and a dictionary of proposed changes, update the file with your proposed changes.
 The dictionary of changes needs to have line numbers as keys with values being a touple with the first touple
 entry being "add", "replace", or "delete", and the second touple entry being the change to make (an empty string in the case of deletion).
-
-Your goal is to iterate through these actions until the original coding task is achieved
 
 Example session:
 
@@ -156,11 +152,13 @@ def list_files(starting_dir=''):
         for dir_entry in os.scandir(".{}".format(starting_dir)):
             if dir_entry.is_file():
                 file_paths.append(dir_entry.path)
-            elif dir_entry.is_dir() and (not '.git' in dir_entry.path):
+            elif dir_entry.is_dir() and ('.git' not in dir_entry.path):
                 depth += 1
                 if depth <= MAX_DEPTH:
                     sub_file_paths = helper(starting_dir=dir_entry.path[1:])
                     file_paths = file_paths + sub_file_paths
+                else:
+                    file_paths.append(dir_entry.path)
         return file_paths
     return "{}{}".format(preface, helper(starting_dir))
 
