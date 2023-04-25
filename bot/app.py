@@ -45,14 +45,15 @@ class ChatBot:
             self.messages[-1]['content'] = new_message
 
         self.messages.append({"role": "assistant", "content": result})
-        # print("all messages 2: {}".format(self.messages), end='\n\n')
+        for message in self.messages[1:]:
+            print("message: {}".format(message), end='\n\n')
         return result
 
     def execute(self):
         completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=self.messages, temperature=0.1)
         # Uncomment this to print out token usage each time, e.g.
         # {"completion_tokens": 86, "prompt_tokens": 26, "total_tokens": 112}
-        # print(completion.usage)
+        print(completion.usage)
         return completion.choices[0].message.content
 
 
@@ -236,19 +237,18 @@ def change_file(filepath, changes):
     print('(reply "yes" if you want to continue with the file change, or given an explanation of why not for the ai if not)')
     user_input = input()
     if user_input == 'yes':
-        print('got to change_file', end='\n\n')
         changes_dict = ast.literal_eval(changes)
         old_file_lines = open("./{}".format(filepath)).readlines()
         new_file_lines = [*old_file_lines]
         line_num_differential = 0
         for line_num, change in changes_dict.items():
             if change[0] == 'add':
-                new_file_lines = new_file_lines[:line_num + line_num_differential] + ["{}\n".format(change[1])] + old_file_lines[line_num - line_num_differential:]
+                new_file_lines = new_file_lines[:line_num] + ["{}\n".format(change[1])] + old_file_lines[line_num - line_num_differential:]
                 line_num_differential += 1
             if change[0] == 'replace':
-                new_file_lines = new_file_lines[:line_num + line_num_differential - 1] + ["{}\n".format(change[1])] + old_file_lines[line_num - line_num_differential:]
+                new_file_lines = new_file_lines[:line_num] + ["{}\n".format(change[1])] + old_file_lines[line_num - line_num_differential:]
             if change[0] == 'delete':
-                new_file_lines = new_file_lines[:line_num + line_num_differential - 1] + old_file_lines[line_num - line_num_differential:]
+                new_file_lines = new_file_lines[:line_num] + old_file_lines[line_num - line_num_differential:]
                 line_num_differential -= 1
         with open(".{}".format(filepath), 'w') as file:
             file.writelines(new_file_lines)
