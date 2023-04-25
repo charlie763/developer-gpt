@@ -33,20 +33,19 @@ class ChatBot:
         #                 old_message['content'] = 'check the next message to see what you thought about this message'
         self.messages.append({"role": "user", "content": message})
         result = self.execute()
-
         # memory optimization for readfile (split out later)
         successful_read_file_re = re.compile('lines [0-9]+-[0-9]+')
         read_file_match = successful_read_file_re.search(result)
         if read_file_match:
             relevant_lines = read_file_match.group().replace("lines ", "").split('-')
             stripped_message = re.sub(r"result of -- running read_file.*]:", "", message.strip()).strip()
-            file_lines =  ast.literal_eval(stripped_message)
+            file_lines = ast.literal_eval(stripped_message)
             relevant_file_lines = file_lines[(int(relevant_lines[0]) - 1):(int(relevant_lines[1]) - 1)]
             new_message = "relevant lines found after running read_file with [\'/frontend/index.js\']: {}".format(relevant_file_lines)
             self.messages[-1]['content'] = new_message
 
         self.messages.append({"role": "assistant", "content": result})
-        # print(self.messages)
+        # print("all messages 2: {}".format(self.messages), end='\n\n')
         return result
 
     def execute(self):
@@ -63,13 +62,14 @@ You run in a loop of Thought, Action, PAUSE.
 Use Thought to describe your thoughts about the coding task, results of actions you have taken,
 or why you plan to take the action you plan to take next.
 Use Action to run one of the actions available to you - then return PAUSE.
+Wait for the developer to respond to your message before continuing.
 At the end of a loop cycle you either take the result of the last action as input to generate
 your next action, or you stop looping if you think the coding task is complete
 
 Your available actions are:
 
 list_files:
-Given a starting directory as an argument, lists files in a directory tree
+Given a starting directory as an argument, lists files in a directory tree (max depth 2)
 Use the initial coding task and any previous action results to call this action with a starting file directory.
 Use the result of this action to figure out which file to look at or if you need to first list files with a different starting directory.
 If you don't know which starting directory to start in, start with '/'.
@@ -87,25 +87,79 @@ Given a file path and a dictionary of proposed changes, update the file with you
 The dictionary of changes needs to have line numbers as keys with values being a touple with the first touple
 entry being "add", "replace", or "delete", and the second touple entry being the change to make (an empty string in the case of deletion).
 
-Example session:
+Example session 1:
 
-Coding Task: We have a built game of Tetris. The arrow keys are used to move pieces, but pressing up also scrolls the
-             user up and down in the browser. Prevent this from happening.
+Coding Task: We have a game of Tetris I'd like to prevent users from scrolling up and down in the browser when pressing the up and down arrow keys respectively
+
 Thought: I should find the file where arrow keyboard events are handled.
 Action: list_files, Arg: /
 PAUSE
 
-Thought: Given the results of list_files: /, I should look in the /frontend/eventHandlers.js file.
-Action: read_file, Arg: /frontend/eventHandlers.js
-PAUSE
+(Developer responds with a list of files in the root directory)
 
-Thought: I can't find the relevant code in /frontend/eventHandlers.js. I should look in another file. Let me look at other list_files results.
+Thought: I see that the root directory is the correct starting directory. Let me look at the /frontend/index.js file to see if that's where the arrow keyboard events are handled.
 Action: read_file, Arg: /frontend/index.js
 PAUSE
 
-Thought: Looks like the relevant code is from lines 14-17 in /frontend/index.js in the handleKeyDownEvents function. I should change the code on those lines.
-Action: change_file, Arg: /frontend/index.js, Arg: {15: ('add', '    e.preventDefault()')}
+(Developer responds with the contents of the /frontend/index.js file)
+
+Thought: Looks like the relevant code is from lines 61-71 in /frontend/index.js in the handleKeyDown function. The handleKeyDown function
+         translates keyboard events into tetris piece movements and then calls the movePiece function with one of those piece movements. 
+         I should prevent the default behavior of keyboard events before any of that logic is called.
+Action: change_file, Arg: /frontend/index.js, Arg: {61: ('add', '    e.preventDefault()\n')}
 PAUSE
+
+(Developer either tells you that the changes were made or that the changes were not made and why)
+
+
+Example session 2:
+
+Coding Task: We have multiple registration endpoints that our users can use to register for our service. There's duplicative logic in each.
+             We should move the duplicative logic into the RegistrationController.py file and then call that logic from each endpoint.
+
+Thought: I should first find the file where the registration endpoints are defined.
+Action: list_files, Arg: /
+PAUSE
+
+(Developer responds with a list of files in the root directory)
+
+Thought: I see that the root directory is the correct starting directory. Let me look at the /app/routes directory.
+Action: list_files, Arg: /app/routes
+PAUSE
+
+(Developer responds with a list of files in the /app/routes directory)
+
+Thought: The /app/routes/__init__.py file looks promising. Let me look at that file.
+Action: read_file, Arg: /app/routes/__init__.py
+PAUSE
+
+(Developer responds with the contents of the /app/routes/__init__.py file)
+
+Thought: Looks like the relevant code is from lines 51-76 and lines 94-112 in /app/routes/__init__.py. There, we see a '/user/register' endpoint, 
+         and a '/user/freemium/register' endpoint. Both call the validateEmail() and validatePassword() functions. I should move those functions
+         to the RegistrationController.py file and then call them from each endpoint. Let's first checkout the RegistrationController.py file.
+Action: list_files, Arg: /app/controllers
+PAUSE
+
+(Developer responds with a list of files in the /app/controllers directory)
+
+Thought: I found RegistrationController.py. Let me look at that file.
+Action: read_file, Arg: /app/controllers/RegistrationController.py
+PAUSE
+
+(Developer responds with the contents of the /app/controllers/RegistrationController.py file)
+
+Thought: I didn't see any code that would necessarily be a good place to put the duplicative code from the register endpoints.
+         So, I'd suggest creating a new method under the RegistrationController class called validateEmailAndPassword().
+Action: change_file, Arg: /app/controllers/RegistrationController.py, Arg: {1: ('add', 'import (validateEmail, validatePassword from './ValidationController.py \n'), 10: ('add', '  def validateEmailAndPassword(email, password):\n'), 11: ('add', '    validateEmail(email)\n'), 12: ('add', '    validatePassword(password)\n')}
+PAUSE
+
+(Developer either tells you that the changes were made or that the changes were not made and why)
+
+Thought: Now that I've created the validateEmailAndPassword() method, I should call it from the '/user/register' and '/user/freemium/register' endpoints.
+Action change_file: Arg: /app/routes/__init__.py, Arg: {1: ('add', 'import (validateEmailAndPassword from '../controllers/RegistrationController.py \n'), 53: ('replace', '  validateEmailAndPssword(email, password)\n'), 54: ('delete', ''), 95: ('replace', '  validateEmailAndPssword(email, password)\n'), 96: ('delete', '')}
+
+(Developer either tells you that the changes were made or that the changes were not made and why)
 
 Continue iterating like this until you make the necessary changes to complete the coding task.
 """.strip()
@@ -117,7 +171,7 @@ action_re = re.compile('^Action: (.*)$')
 def coding_task(task, max_turns=8):
     i = 0
     bot = ChatBot(prompt)
-    next_prompt = task
+    next_prompt = "Coding Task: {}".format(task)
     while i < max_turns:
         i += 1
         result = bot(next_prompt)
@@ -182,18 +236,19 @@ def change_file(filepath, changes):
     print('(reply "yes" if you want to continue with the file change, or given an explanation of why not for the ai if not)')
     user_input = input()
     if user_input == 'yes':
+        print('got to change_file', end='\n\n')
         changes_dict = ast.literal_eval(changes)
         old_file_lines = open("./{}".format(filepath)).readlines()
         new_file_lines = [*old_file_lines]
         line_num_differential = 0
         for line_num, change in changes_dict.items():
             if change[0] == 'add':
-                new_file_lines = new_file_lines[:line_num] + ["{}\n".format(change[1])] + old_file_lines[line_num - line_num_differential:]
+                new_file_lines = new_file_lines[:line_num + line_num_differential] + ["{}\n".format(change[1])] + old_file_lines[line_num - line_num_differential:]
                 line_num_differential += 1
             if change[0] == 'replace':
-                new_file_lines = new_file_lines[:line_num + line_num_differential - 1] + ["{}\n".format(change[1])] + old_file_lines[line_num:]
+                new_file_lines = new_file_lines[:line_num + line_num_differential - 1] + ["{}\n".format(change[1])] + old_file_lines[line_num - line_num_differential:]
             if change[0] == 'delete':
-                new_file_lines = new_file_lines[:line_num + line_num_differential - 1] + old_file_lines[line_num:]
+                new_file_lines = new_file_lines[:line_num + line_num_differential - 1] + old_file_lines[line_num - line_num_differential:]
                 line_num_differential -= 1
         with open(".{}".format(filepath), 'w') as file:
             file.writelines(new_file_lines)
