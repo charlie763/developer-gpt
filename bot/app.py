@@ -50,13 +50,17 @@ class ChatBot:
             singular_read_file_match = successful_read_file_re_singular.search(result)
             if plural_read_file_match:
                 relevant_lines = plural_read_file_match.group().replace("lines ", "").split('-')
-                relevant_file_lines = file_lines[(int(relevant_lines[0]) - 1):(int(relevant_lines[1]) - 1)]
+                relevant_start_line = int(relevant_lines[0]) - 6 if int(relevant_lines[0]) - 6 >= 0 else 0
+                relevant_end_line = int(relevant_lines[1]) + 6 if int(relevant_lines[1]) + 6 <= len(file_lines) else len(file_lines)
+                relevant_file_lines = file_lines[relevant_start_line:relevant_end_line]
                 new_plural_message = "relevant lines found after running read_file with {}: {}".format(read_file_pathname, relevant_file_lines)
                 self.messages[-1]['content'] = new_plural_message
             elif singular_read_file_match:
                 relevant_line = singular_read_file_match.group().replace("line ", "")
-                relevant_file_line = file_lines[int(relevant_line) - 1]
-                new_singular_message = "relevant line found after running read_file with {}: {}".format(read_file_pathname, relevant_file_line)
+                relevant_start_line = int(relevant_line) - 6 if int(relevant_line) - 6 >= 0 else 0
+                relevant_end_line = int(relevant_line) + 6 if int(relevant_line) + 6 <= len(file_lines) else len(file_lines)
+                relevant_file_lines = file_lines[relevant_start_line:relevant_end_line]
+                new_singular_message = "relevant line found after running read_file with {}: {}".format(read_file_pathname, relevant_file_lines)
                 self.messages[-1]['content'] = new_singular_message
 
         self.messages.append({"role": "assistant", "content": result})
