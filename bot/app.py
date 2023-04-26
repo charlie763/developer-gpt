@@ -5,6 +5,7 @@ import openai
 import re
 import ast
 from decouple import config
+import subprocess
 
 
 openai.api_key = config("OPENAI_API_KEY")
@@ -33,24 +34,36 @@ class ChatBot:
         #                 old_message['content'] = 'check the next message to see what you thought about this message'
         self.messages.append({"role": "user", "content": message})
         result = self.execute()
+
         # memory optimization for readfile (split out later)
-        successful_read_file_re = re.compile('lines [0-9]+-[0-9]+')
-        read_file_match = successful_read_file_re.search(result)
-        if read_file_match:
-            relevant_lines = read_file_match.group().replace("lines ", "").split('-')
+        previous_message = self.messages[-1]['content']
+        read_file_re = re.compile('read_file')
+        if read_file_re.search(previous_message):
+            read_file_pathname_re = re.compile('read_file .*?]')
+            read_file_pathname_match = read_file_pathname_re.search(previous_message)
+            read_file_pathname = read_file_pathname_match.group().replace("read_file [", "").replace("]", "")
             stripped_message = re.sub(r"result of -- running read_file.*]:", "", message.strip()).strip()
             file_lines = ast.literal_eval(stripped_message)
-            relevant_file_lines = file_lines[(int(relevant_lines[0]) - 1):(int(relevant_lines[1]) - 1)]
-            new_message = "relevant lines found after running read_file with [\'/frontend/index.js\']: {}".format(relevant_file_lines)
-            self.messages[-1]['content'] = new_message
+            successful_read_file_re_plural = re.compile('lines [0-9]+-[0-9]+')
+            plural_read_file_match = successful_read_file_re_plural.search(result)
+            successful_read_file_re_singular = re.compile('line [0-9]')
+            singular_read_file_match = successful_read_file_re_singular.search(result)
+            if plural_read_file_match:
+                relevant_lines = plural_read_file_match.group().replace("lines ", "").split('-')
+                relevant_file_lines = file_lines[(int(relevant_lines[0]) - 1):(int(relevant_lines[1]) - 1)]
+                new_plural_message = "relevant lines found after running read_file with {}: {}".format(read_file_pathname, relevant_file_lines)
+                self.messages[-1]['content'] = new_plural_message
+            elif singular_read_file_match:
+                relevant_line = singular_read_file_match.group().replace("line ", "")
+                relevant_file_line = file_lines[int(relevant_line) - 1]
+                new_singular_message = "relevant line found after running read_file with {}: {}".format(read_file_pathname, relevant_file_line)
+                self.messages[-1]['content'] = new_singular_message
 
         self.messages.append({"role": "assistant", "content": result})
-        for message in self.messages[1:]:
-            print("message: {}".format(message), end='\n\n')
         return result
 
     def execute(self):
-        completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=self.messages, temperature=0.1)
+        completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=self.messages, temperature=0)
         # Uncomment this to print out token usage each time, e.g.
         # {"completion_tokens": 86, "prompt_tokens": 26, "total_tokens": 112}
         print(completion.usage)
@@ -63,6 +76,7 @@ You run in a loop of Thought, Action, PAUSE.
 Use Thought to describe your thoughts about the coding task, results of actions you have taken,
 or why you plan to take the action you plan to take next.
 Use Action to run one of the actions available to you - then return PAUSE.
+Each action must be followed by a PAUSE or the action will not be run.
 Wait for the developer to respond to your message before continuing.
 At the end of a loop cycle you either take the result of the last action as input to generate
 your next action, or you stop looping if you think the coding task is complete
@@ -79,14 +93,13 @@ read_file:
 Given a filename as an argument, reads the file and returns the lines of the file as a list, either all the lines or just the relevant lines.
 Use the result of this action to figure out which line(s) of code to change or if you to need first look in another file.
 If you can't find the code that needs to change, you most likely need to look in another file first.
-If you do find relevant code make sure to say which lines of code are relevant in your Thought.
-When mentioning relevant lines you need to use the syntax "line [beginning line number]-[ending line number]".
+If you do find relevant code you MUST say which lines of code are relevant in your Thought.
+When mentioning relevant lines you need to use the syntax "lines [beginning line number]-[ending line number]". You cannot mention only one line.
 It can also be helpful to mention any relevant functions or methods and summarize what they do.
 
 change_file:
-Given a file path and a dictionary of proposed changes, update the file with your proposed changes.
-The dictionary of changes needs to have line numbers as keys with values being a touple with the first touple
-entry being "add", "replace", or "delete", and the second touple entry being the change to make (an empty string in the case of deletion).
+Given a filepath and a diff, apply the changes with patch.
+The diff needs to be in standard unified diff format.
 
 Example session 1:
 
@@ -107,7 +120,17 @@ PAUSE
 Thought: Looks like the relevant code is from lines 61-71 in /frontend/index.js in the handleKeyDown function. The handleKeyDown function
          translates keyboard events into tetris piece movements and then calls the movePiece function with one of those piece movements. 
          I should prevent the default behavior of keyboard events before any of that logic is called.
-Action: change_file, Arg: /frontend/index.js, Arg: {61: ('add', '    e.preventDefault()\n')}
+Action: change_file, Arg: /frontend/index.js, Arg: 
+--- a/frontend/index.js
++++ b/frontend/index.js
+@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
+   }
+
+   function handleKeyDown (e) {
++    e.preventDefault()
+     const keyDownTranslator = {
+       ArrowLeft: 'left',
+       ArrowRight: 'right',
 PAUSE
 
 (Developer either tells you that the changes were made or that the changes were not made and why)
@@ -152,21 +175,47 @@ PAUSE
 
 Thought: I didn't see any code that would necessarily be a good place to put the duplicative code from the register endpoints.
          So, I'd suggest creating a new method under the RegistrationController class called validateEmailAndPassword().
-Action: change_file, Arg: /app/controllers/RegistrationController.py, Arg: {1: ('add', 'import (validateEmail, validatePassword from './ValidationController.py \n'), 10: ('add', '  def validateEmailAndPassword(email, password):\n'), 11: ('add', '    validateEmail(email)\n'), 12: ('add', '    validatePassword(password)\n')}
+Action: change_file, Arg: /app/controllers/RegistrationController.py, Arg:
+--- a/app/controllers/RegistrationController.py
++++ b/app/controllers/RegistrationController.py
+@@ -1,0 +2,19 @@
+class RegistrationController:
++  def validateEmailAndPassword(email, password):
++    validateEmail(email)
++    validatePassword(password)
 PAUSE
 
-(Developer either tells you that the changes were made or that the changes were not made and why)
+Thought: Now, let's call the validateEmailAndPassword() method from each endpoint.
+Action: change_file, Arg: /app/controllers/RegistrationController.py, Arg:
+--- a/app/routes/__init__.py
++++ b/app/routes/__init__.py
+@@ -51,6 +51,7 @@
 
-Thought: Now that I've created the validateEmailAndPassword() method, I should call it from the '/user/register' and '/user/freemium/register' endpoints.
-Action change_file: Arg: /app/routes/__init__.py, Arg: {1: ('add', 'import (validateEmailAndPassword from '../controllers/RegistrationController.py \n'), 53: ('replace', '  validateEmailAndPssword(email, password)\n'), 54: ('delete', ''), 95: ('replace', '  validateEmailAndPssword(email, password)\n'), 96: ('delete', '')}
+ @bp.route('/user/register', methods=['POST'])
+ def register_user():
+     email = request.form['email']
+     password = request.form['password']
+-    validateEmail(email)
+-    validatePassword(password)
++    RegistrationController.validateEmailAndPassword(email, password)
+     name = request.form['name']
+@@ -94,6 +95,7 @@
 
-(Developer either tells you that the changes were made or that the changes were not made and why)
+ @bp.route('/user/freemium/register', methods=['POST'])
+ def register_free_user():
+     email = request.form['email']
+     password = request.form['password']
+-    validateEmail(email)
+-    validatePassword(password)
++    RegistrationController.validateEmailAndPassword(email, password)
+     name = request.form['name']
+PAUSE
 
 Continue iterating like this until you make the necessary changes to complete the coding task.
 """.strip()
 
 
-action_re = re.compile('^Action: (.*)$')
+action_re = re.compile('Action:[\s\S]*PAUSE')
 
 
 def coding_task(task, max_turns=8):
@@ -176,18 +225,19 @@ def coding_task(task, max_turns=8):
     while i < max_turns:
         i += 1
         result = bot(next_prompt)
-        print(result)
-        actions = [action_re.match(a) for a in result.split('\n') if action_re.match(a)]
-        if actions:
+        print(result, end='\n\n')
+        action = action_re.search(result)
+        if action:
             # There is an action to run
-            action_list = actions[0].string.split(', Arg: ')
-            action = action_list[0].split('Action: ')[1]
-            action_args = action_list[1:]
-            if action not in known_actions:
-                raise Exception("Unknown action: {}: {}".format(action, action_args))
-            print(" -- running {} {}".format(action, action_args))
-            action_result = known_actions[action](*action_args)
-            next_prompt = "result of -- running {} {}: {}".format(action, action_args, action_result)
+            # action_list = actions[0].string.split(', Arg: ')
+            action_list = action.group().split(', Arg:')
+            action_method = action_list[0].split('Action: ')[1]
+            action_args = [arg.replace('PAUSE', '').strip() for arg in action_list[1:]]
+            if action_method not in known_actions:
+                next_prompt = "That action isn't supported. Please try again with an action from the initial prompt."
+            print(" -- running {} {}".format(action_method, action_args))
+            action_result = known_actions[action_method](*action_args)
+            next_prompt = "result of -- running {} {}: {}".format(action_method, action_args, action_result)
         else:
             return
 
@@ -224,6 +274,7 @@ def read_file(filepath):
     truncated_file_path = filepath if filepath[0] == '/' else filepath[1:]
     try:
         with open(".{}".format(truncated_file_path)) as file:
+            # return file.read()
             for line in file:
                 file_lines.append("{}. {}".format(num, line))
                 num += 1
@@ -232,27 +283,23 @@ def read_file(filepath):
         return "That file doesn't exist. Try again. Only try files resulting from a list_files action."
 
 
-def change_file(filepath, changes):
-    print('Do you want to make the following changes to {}: {}?'.format(filepath, changes))
+def change_file(filepath, diff):
+    print('Do you want to make the following changes to {}? {}'.format(filepath, diff))
+    print("diff: {}".format(diff), end='\n\n')
     print('(reply "yes" if you want to continue with the file change, or given an explanation of why not for the ai if not)')
     user_input = input()
     if user_input == 'yes':
-        changes_dict = ast.literal_eval(changes)
-        old_file_lines = open("./{}".format(filepath)).readlines()
-        new_file_lines = [*old_file_lines]
-        line_num_differential = 0
-        for line_num, change in changes_dict.items():
-            if change[0] == 'add':
-                new_file_lines = new_file_lines[:line_num] + ["{}\n".format(change[1])] + old_file_lines[line_num - line_num_differential:]
-                line_num_differential += 1
-            if change[0] == 'replace':
-                new_file_lines = new_file_lines[:line_num] + ["{}\n".format(change[1])] + old_file_lines[line_num - line_num_differential:]
-            if change[0] == 'delete':
-                new_file_lines = new_file_lines[:line_num] + old_file_lines[line_num - line_num_differential:]
-                line_num_differential -= 1
-        with open(".{}".format(filepath), 'w') as file:
-            file.writelines(new_file_lines)
-        return "The File changed successfully"
+        with open('temp-patch-file.txt', 'w') as f:
+            f.write(diff)
+        patch_process = subprocess.Popen(['patch', './frontend/game.js', 'temp-patch-file.txt'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        patch_process_stdout = list(iter(patch_process.stdout.readline, b''))
+        patch_process_return_code = patch_process.wait()
+        if patch_process_return_code == 0:
+            os.remove('temp-patch-file.txt')
+            return "File changed successfully."
+        else:
+            print("patch_process_stdout: {}".format(patch_process_stdout), end='\n\n')
+            return "Unable to apply changes. Something is probably wrong with the diff. Here's the output of the patch command: {}".format(patch_process_stdout)
     else:
         return "The File was not changed because: {}".format(user_input)
 
