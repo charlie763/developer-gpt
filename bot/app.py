@@ -283,9 +283,10 @@ def change_file(filepath, diff):
     print('(reply "yes" if you want to continue with the file change, or given an explanation of why not for the ai if not)')
     user_input = input()
     if user_input == 'yes':
+        truncated_file_path = filepath if filepath[0] == '/' else filepath[1:]
         with open('temp-patch-file.txt', 'w') as f:
             f.write(diff)
-        patch_process = subprocess.Popen(['patch', './frontend/game.js', 'temp-patch-file.txt'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        patch_process = subprocess.Popen(['patch', ".{}".format(truncated_file_path), 'temp-patch-file.txt'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         patch_process_stdout = list(iter(patch_process.stdout.readline, b''))
         patch_process_return_code = patch_process.wait()
         if patch_process_return_code == 0:
