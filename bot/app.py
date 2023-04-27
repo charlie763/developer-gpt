@@ -20,18 +20,6 @@ class ChatBot:
             self.messages.append({"role": "system", "content": system})
 
     def __call__(self, message):
-        # memory summarization: keep the action result if it was the last successful list_files action otherwise
-        # replace it with a message saying to check the next message to see what you thought about this message
-        # if len(self.messages) >= 2 and self.messages[-2]['role'] == 'user':
-        #     message_content = self.messages[-2]['content']
-        #     successful_list_files_re = re.compile('list_files.*files found')
-        #     if successful_list_files_re.search(message_content) and (not self.last_list_files_result or len(self.last_list_files_result) > len(message_content)):
-        #         self.last_list_files_result = message_content
-        #         self.messages[-2]['content'] = "last successful result of list_files: {}".format(message_content)
-        #         for old_message in self.messages[:-2]:
-        #             list_files_re = re.compile('list_files')
-        #             if list_files_re.search(old_message['content']) and old_message['role'] == 'user':
-        #                 old_message['content'] = 'check the next message to see what you thought about this message'
         self.messages.append({"role": "user", "content": message})
         result = self.execute()
 
@@ -63,8 +51,6 @@ class ChatBot:
                 new_singular_message = "relevant line found after running read_file with {}: {}".format(read_file_pathname, relevant_file_lines)
                 self.messages[-1]['content'] = new_singular_message
             else:
-                # try popping the last user message off, replacing it with a different user message, and re-running execute
-                # "Please make sure to include the line number(s) of the relevant line(s) in your Thought before moving on. Try readling the file again."
                 self.messages.pop()
                 self.messages.append({"role": "user", "content": "Please make sure to include the line number(s) of the relevant line(s) in your Thought before moving on. Try reading the file again."})
                 result = self.execute()
@@ -239,7 +225,6 @@ def coding_task(task, max_turns=8):
         action = action_re.search(result)
         if action:
             # There is an action to run
-            # action_list = actions[0].string.split(', Arg: ')
             action_list = action.group().split(', Arg:')
             action_method = action_list[0].split('Action: ')[1]
             action_args = [arg.replace('PAUSE', '').strip() for arg in action_list[1:]]
