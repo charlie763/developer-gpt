@@ -38,26 +38,18 @@ class ChatBot:
             singular_read_file_match = successful_read_file_re_singular.search(result)
             if plural_read_file_match:
                 relevant_lines = plural_read_file_match.group().replace("lines ", "").split('-')
-                # print("relevant lines: {}".format(relevant_lines), end="\n\n")
                 relevant_start_line = int(relevant_lines[0]) - 5 if int(relevant_lines[0]) - 5 >= 0 else 0
                 relevant_end_line = int(relevant_lines[1]) + 5 if int(relevant_lines[1]) + 5 <= len(file_lines) else len(file_lines)
                 relevant_file_lines = file_lines[relevant_start_line:relevant_end_line]
                 new_plural_message = "relevant lines found after running read_file with {}: {}".format(read_file_pathname, relevant_file_lines)
-                # print("new plural message: {}".format(new_plural_message), end="\n\n")
                 self.messages[-1]['content'] = new_plural_message
-                # for message in self.messages[-3:]:
-                #     print(message, end="\n\n")
             elif singular_read_file_match:
                 relevant_line = singular_read_file_match.group().replace("line ", "")
-                # print("relevant line: {}".format(relevant_line), end="\n\n")
                 relevant_start_line = int(relevant_line) - 5 if int(relevant_line) - 5 >= 0 else 0
                 relevant_end_line = int(relevant_line) + 5 if int(relevant_line) + 5 <= len(file_lines) else len(file_lines)
                 relevant_file_lines = file_lines[relevant_start_line:relevant_end_line]
                 new_singular_message = "relevant line found after running read_file with {}: {}".format(read_file_pathname, relevant_file_lines)
-                # print("new singular message: {}".format(new_singular_message), end="\n\n")
                 self.messages[-1]['content'] = new_singular_message
-                # for message in self.messages[-3:]:
-                #     print(message, end="\n\n")
             else:
                 self.messages.pop()
                 self.messages.append({"role": "user", "content": "Please make sure to include the line number(s) of the relevant line(s) in your Thought before moving on. Try reading the file again."})
@@ -72,7 +64,7 @@ class ChatBot:
         completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=self.messages, temperature=0)
         # Uncomment this to print out token usage each time, e.g.
         # {"completion_tokens": 86, "prompt_tokens": 26, "total_tokens": 112}
-        # print(completion.usage)
+        print(completion.usage)
         return completion.choices[0].message.content
 
 
@@ -115,13 +107,9 @@ Thought: I should find the file where arrow keyboard events are handled.
 Action: list_files, Arg: /
 PAUSE
 
-(Developer responds with a list of files in the root directory)
-
 Thought: I see that the root directory is the correct starting directory. Let me look at the /frontend/index.js file to see if that's where the arrow keyboard events are handled.
 Action: read_file, Arg: /frontend/index.js
 PAUSE
-
-(Developer responds with the contents of the /frontend/index.js file)
 
 Thought: Looks like the relevant code is from lines 61-71 in /frontend/index.js in the handleKeyDown function. The handleKeyDown function
          translates keyboard events into tetris piece movements and then calls the movePiece function with one of those piece movements. 
@@ -129,17 +117,13 @@ Thought: Looks like the relevant code is from lines 61-71 in /frontend/index.js 
 Action: change_file, Arg: /frontend/index.js, Arg: 
 --- a/frontend/index.js
 +++ b/frontend/index.js
-@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
-   }
-
+@@ -59,4 +59,5 @@
    function handleKeyDown (e) {
 +    e.preventDefault()
      const keyDownTranslator = {
        ArrowLeft: 'left',
        ArrowRight: 'right',
 PAUSE
-
-(Developer either tells you that the changes were made or that the changes were not made and why)
 
 
 Example session 2:
@@ -151,19 +135,13 @@ Thought: I should first find the file where the registration endpoints are defin
 Action: list_files, Arg: /
 PAUSE
 
-(Developer responds with a list of files in the root directory)
-
 Thought: I see that the root directory is the correct starting directory. Let me look at the /app/routes directory.
 Action: list_files, Arg: /app/routes
 PAUSE
 
-(Developer responds with a list of files in the /app/routes directory)
-
 Thought: The /app/routes/__init__.py file looks promising. Let me look at that file.
 Action: read_file, Arg: /app/routes/__init__.py
 PAUSE
-
-(Developer responds with the contents of the /app/routes/__init__.py file)
 
 Thought: Looks like the relevant code is from lines 51-76 and lines 94-112 in /app/routes/__init__.py. There, we see a '/user/register' endpoint, 
          and a '/user/freemium/register' endpoint. Both call the validateEmail() and validatePassword() functions. I should move those functions
@@ -171,20 +149,16 @@ Thought: Looks like the relevant code is from lines 51-76 and lines 94-112 in /a
 Action: list_files, Arg: /app/controllers
 PAUSE
 
-(Developer responds with a list of files in the /app/controllers directory)
-
 Thought: I found RegistrationController.py. Let me look at that file.
 Action: read_file, Arg: /app/controllers/RegistrationController.py
 PAUSE
-
-(Developer responds with the contents of the /app/controllers/RegistrationController.py file)
 
 Thought: I didn't see any code that would necessarily be a good place to put the duplicative code from the register endpoints.
          So, I'd suggest creating a new method under the RegistrationController class called validateEmailAndPassword().
 Action: change_file, Arg: /app/controllers/RegistrationController.py, Arg:
 --- a/app/controllers/RegistrationController.py
 +++ b/app/controllers/RegistrationController.py
-@@ -1,0 +2,19 @@
+@@ -1,1 +1,4 @@
 class RegistrationController:
 +  def validateEmailAndPassword(email, password):
 +    validateEmail(email)
@@ -195,8 +169,7 @@ Thought: Now, let's call the validateEmailAndPassword() method from each endpoin
 Action: change_file, Arg: /app/controllers/RegistrationController.py, Arg:
 --- a/app/routes/__init__.py
 +++ b/app/routes/__init__.py
-@@ -51,6 +51,7 @@
-
+@@ -51,7 +50,6 @@
  @bp.route('/user/register', methods=['POST'])
  def register_user():
      email = request.form['email']
@@ -205,8 +178,8 @@ Action: change_file, Arg: /app/controllers/RegistrationController.py, Arg:
 -    validatePassword(password)
 +    RegistrationController.validateEmailAndPassword(email, password)
      name = request.form['name']
-@@ -94,6 +95,7 @@
 
+@@ -94,7 +93,6 @@
  @bp.route('/user/freemium/register', methods=['POST'])
  def register_free_user():
      email = request.form['email']
