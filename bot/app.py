@@ -34,35 +34,45 @@ class ChatBot:
             file_lines = ast.literal_eval(stripped_message)
             successful_read_file_re_plural = re.compile('lines [0-9]+-[0-9]+')
             plural_read_file_match = successful_read_file_re_plural.search(result)
-            successful_read_file_re_singular = re.compile('line [0-9]')
+            successful_read_file_re_singular = re.compile('line [0-9]+')
             singular_read_file_match = successful_read_file_re_singular.search(result)
             if plural_read_file_match:
                 relevant_lines = plural_read_file_match.group().replace("lines ", "").split('-')
-                relevant_start_line = int(relevant_lines[0]) - 6 if int(relevant_lines[0]) - 6 >= 0 else 0
-                relevant_end_line = int(relevant_lines[1]) + 6 if int(relevant_lines[1]) + 6 <= len(file_lines) else len(file_lines)
+                # print("relevant lines: {}".format(relevant_lines), end="\n\n")
+                relevant_start_line = int(relevant_lines[0]) - 5 if int(relevant_lines[0]) - 5 >= 0 else 0
+                relevant_end_line = int(relevant_lines[1]) + 5 if int(relevant_lines[1]) + 5 <= len(file_lines) else len(file_lines)
                 relevant_file_lines = file_lines[relevant_start_line:relevant_end_line]
                 new_plural_message = "relevant lines found after running read_file with {}: {}".format(read_file_pathname, relevant_file_lines)
+                # print("new plural message: {}".format(new_plural_message), end="\n\n")
                 self.messages[-1]['content'] = new_plural_message
+                # for message in self.messages[-3:]:
+                #     print(message, end="\n\n")
             elif singular_read_file_match:
                 relevant_line = singular_read_file_match.group().replace("line ", "")
-                relevant_start_line = int(relevant_line) - 6 if int(relevant_line) - 6 >= 0 else 0
-                relevant_end_line = int(relevant_line) + 6 if int(relevant_line) + 6 <= len(file_lines) else len(file_lines)
+                # print("relevant line: {}".format(relevant_line), end="\n\n")
+                relevant_start_line = int(relevant_line) - 5 if int(relevant_line) - 5 >= 0 else 0
+                relevant_end_line = int(relevant_line) + 5 if int(relevant_line) + 5 <= len(file_lines) else len(file_lines)
                 relevant_file_lines = file_lines[relevant_start_line:relevant_end_line]
                 new_singular_message = "relevant line found after running read_file with {}: {}".format(read_file_pathname, relevant_file_lines)
+                # print("new singular message: {}".format(new_singular_message), end="\n\n")
                 self.messages[-1]['content'] = new_singular_message
+                # for message in self.messages[-3:]:
+                #     print(message, end="\n\n")
             else:
                 self.messages.pop()
                 self.messages.append({"role": "user", "content": "Please make sure to include the line number(s) of the relevant line(s) in your Thought before moving on. Try reading the file again."})
                 result = self.execute()
 
         self.messages.append({"role": "assistant", "content": result})
+        # for message in self.messages:
+        #     print(message, end="\n\n")
         return result
 
     def execute(self):
         completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=self.messages, temperature=0)
         # Uncomment this to print out token usage each time, e.g.
         # {"completion_tokens": 86, "prompt_tokens": 26, "total_tokens": 112}
-        print(completion.usage)
+        # print(completion.usage)
         return completion.choices[0].message.content
 
 
@@ -211,7 +221,7 @@ Continue iterating like this until you make the necessary changes to complete th
 """.strip()
 
 
-action_re = re.compile('Action:[\s\S]*PAUSE')
+action_re = re.compile('Action:[\s\S]*')
 
 
 def coding_task(task, max_turns=8):
@@ -234,6 +244,7 @@ def coding_task(task, max_turns=8):
             action_result = known_actions[action_method](*action_args)
             next_prompt = "result of -- running {} {}: {}".format(action_method, action_args, action_result)
         else:
+            print(" -- no action to run")
             return
 
 
@@ -269,7 +280,6 @@ def read_file(filepath):
     truncated_file_path = filepath if filepath[0] == '/' else filepath[1:]
     try:
         with open(".{}".format(truncated_file_path)) as file:
-            # return file.read()
             for line in file:
                 file_lines.append("{}. {}".format(num, line))
                 num += 1
