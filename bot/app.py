@@ -62,6 +62,12 @@ class ChatBot:
                 relevant_file_lines = file_lines[relevant_start_line:relevant_end_line]
                 new_singular_message = "relevant line found after running read_file with {}: {}".format(read_file_pathname, relevant_file_lines)
                 self.messages[-1]['content'] = new_singular_message
+            else:
+                # try popping the last user message off, replacing it with a different user message, and re-running execute
+                # "Please make sure to include the line number(s) of the relevant line(s) in your Thought before moving on. Try readling the file again."
+                self.messages.pop()
+                self.messages.append({"role": "user", "content": "Please make sure to include the line number(s) of the relevant line(s) in your Thought before moving on. Try reading the file again."})
+                result = self.execute()
 
         self.messages.append({"role": "assistant", "content": result})
         return result
@@ -289,7 +295,6 @@ def read_file(filepath):
 
 def change_file(filepath, diff):
     print('Do you want to make the following changes to {}? {}'.format(filepath, diff))
-    print("diff: {}".format(diff), end='\n\n')
     print('(reply "yes" if you want to continue with the file change, or given an explanation of why not for the ai if not)')
     user_input = input()
     if user_input == 'yes':
@@ -302,7 +307,7 @@ def change_file(filepath, diff):
             os.remove('temp-patch-file.txt')
             return "File changed successfully."
         else:
-            print("patch_process_stdout: {}".format(patch_process_stdout), end='\n\n')
+            os.remove('temp-patch-file.txt')
             return "Unable to apply changes. Something is probably wrong with the diff. Here's the output of the patch command: {}".format(patch_process_stdout)
     else:
         return "The File was not changed because: {}".format(user_input)
