@@ -69,6 +69,7 @@ class ChatBot:
 
 
 prompt = """
+OVERVIEW:
 Your goal is to help a developer achieve a coding task.
 You run in a loop of Thought, Action, PAUSE.
 Use Thought to describe your thoughts about the coding task, results of actions you have taken,
@@ -79,7 +80,9 @@ Wait for the developer to respond to your message before continuing.
 At the end of a loop cycle you either take the result of the last action as input to generate
 your next action, or you stop looping if you think the coding task is complete
 
-Your available actions are:
+-------------------
+
+AVAILABLE ACTIONS:
 
 list_files:
 Given a starting directory as an argument, lists files in a directory tree (max depth 2)
@@ -98,6 +101,10 @@ It can also be helpful to mention any relevant functions or methods and summariz
 change_file:
 Given a filepath and a diff, apply the changes with patch.
 The diff needs to be in standard unified diff format.
+
+-------------------
+
+EXAMPLE SESSIONS:
 
 Example session 1:
 
@@ -125,6 +132,7 @@ Action: change_file, Arg: /frontend/index.js, Arg:
        ArrowRight: 'right',
 PAUSE
 
+-------------------
 
 Example session 2:
 
@@ -189,8 +197,6 @@ Action: change_file, Arg: /app/controllers/RegistrationController.py, Arg:
 +    RegistrationController.validateEmailAndPassword(email, password)
      name = request.form['name']
 PAUSE
-
-Continue iterating like this until you make the necessary changes to complete the coding task.
 """.strip()
 
 
