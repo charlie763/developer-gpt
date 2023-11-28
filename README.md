@@ -7,4 +7,8 @@ Run `python3 <path-to-repo>/bot/app.py` from whichever code repo you want to ask
 See the starter `prompt` in `app.py` for more info on what a session is expected to look like.
 
 Demo:
-https://github.com/charlie763/developer-gpt/assets/10297422/65d70d7f-3c1b-4b6e-8ec5-b15cffdcd751
+
+
+https://github.com/charlie763/developer-gpt/assets/10297422/6cc78ede-93f0-4221-9736-802ed5c2b08a
+
+
