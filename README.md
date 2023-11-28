@@ -9,6 +9,9 @@ See the starter `prompt` in `app.py` for more info on what a session is expected
 Demo:
 
 
-https://github.com/charlie763/developer-gpt/assets/10297422/6cc78ede-93f0-4221-9736-802ed5c2b08a
 
+
+
+
+https://github.com/charlie763/developer-gpt/assets/10297422/083c2a89-432d-46c4-91b0-ae92dc0015fc
 
